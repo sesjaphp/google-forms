@@ -1,36 +1,19 @@
-def fill_form(page, questions, answers):
-    print("\nFilling form...\n")
-
+async def fill_form(page, questions, answers):
     for q in questions:
         if q.qtype != "radio":
             continue
 
         answer = answers.get(q.title)
-
         if not answer:
             continue
 
-        radio = q.locator.locator(
-            f'[role="radio"][data-value="{answer}"]'
-        )
+        question_block = page.locator(f'[role="listitem"]:has-text("{q.title}")')
+        if await question_block.count():
+            radio = question_block.locator(f'[role="radio"][data-value="{answer}"], [role="radio"][aria-label="{answer}"]').first
+            if await radio.count():
+                await radio.click()
 
-        if radio.count():
-            radio.first.click()
-
-    page.wait_for_timeout(10)
-
-    submit = page.locator(
-        'div[role="button"]:has-text("Prześlij"), '
-        'div[role="button"]:has-text("Submit")'
-    )
-
-    if submit.count():
-        submit.first.click()
-        print("Submitted.")
-    else:
-        print("Submit not found.")
-
-    page.wait_for_timeout(10)
-
-    page.go_back()
-    page.wait_for_timeout(10)
+    submit = page.locator('div[role="button"]:has-text("Prześlij"), div[role="button"]:has-text("Submit")').first
+    if await submit.count():
+        await submit.click()
+        await page.wait_for_load_state('networkidle')

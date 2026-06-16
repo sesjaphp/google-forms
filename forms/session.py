@@ -1,5 +1,4 @@
-from playwright.sync_api import sync_playwright
-
+from playwright.async_api import async_playwright
 
 class FormSession:
     def __init__(self):
@@ -7,16 +6,15 @@ class FormSession:
         self.browser = None
         self.page = None
 
-    def start(self, url: str):
-        self.p = sync_playwright().start()
-        self.browser = self.p.chromium.launch(headless=False)
-        self.page = self.browser.new_page()
+    async def start(self, url: str):
+        self.p = await async_playwright().start()
+        self.browser = await self.p.chromium.launch(headless=True)
+        self.page = await self.browser.new_page()
+        await self.page.goto(url)
+        await self.page.wait_for_load_state('domcontentloaded')
 
-        self.page.goto(url)
-        self.page.wait_for_timeout(2000)
-
-    def stop(self):
+    async def stop(self):
         if self.browser:
-            self.browser.close()
+            await self.browser.close()
         if self.p:
-            self.p.stop()
+            await self.p.stop()

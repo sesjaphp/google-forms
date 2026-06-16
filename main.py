@@ -1,6 +1,5 @@
+import asyncio
 from rich.console import Console
-from rich.table import Table
-
 from forms.session import FormSession
 from forms.scanner import scan_form
 from ui.menu import collect_answers
@@ -8,54 +7,40 @@ from forms.filler import fill_form
 
 console = Console()
 
+async def submit_once(url, questions, answers):
+    session = FormSession()
+    await session.start(url)
+    await fill_form(session.page, questions, answers)
+    await session.stop()
 
-def display_questions(questions):
-    table = Table(title="Detected Questions")
-
-    table.add_column("#")
-    table.add_column("Title")
-    table.add_column("Options")
-
-    for i, q in enumerate(questions, start=1):
-        table.add_row(str(i), q.title, ", ".join(q.options))
-
-    console.print(table)
-
-
-def run_once(session, url, questions):
-    answers = collect_answers(questions)
-
-    print("\nAnswers:")
-    for k, v in answers.items():
-        print(f"{k} → {v}")
-
-    fill_form(session.page, questions, answers)
-
-
-def main():
-    console.print("[bold cyan]Google Form Bot (Safe Mode)[/bold cyan]")
-
+async def main():
+    console.print("[bold cyan]google spam[/bold cyan]")
     url = input("Form URL: ").strip()
 
-    session = FormSession()
-    session.start(url)
+    temp_session = FormSession()
+    await temp_session.start(url)
+    questions = await scan_form(temp_session.page)
+    await temp_session.stop()
 
-    questions = scan_form(session.page)
+    if not questions:
+        console.print("[bold red]No questions detected. Exiting.[/bold red]")
+        return
 
-    display_questions(questions)
+    answers = collect_answers(questions)
 
-    while True:
-        run_once(session, url, questions)
+    count = int(input("\nNumber of submissions: ").strip())
+    concurrency = int(input("Concurrency (how many at once): ").strip())
 
-        again = input("\nSubmit again? (y/n): ").lower()
-        if again != "y":
-            break
+    semaphore = asyncio.Semaphore(concurrency)
 
-        session.page.goto(url)
-        session.page.wait_for_timeout(20)
+    async def sem_submit(i):
+        async with semaphore:
+            console.print(f"[yellow]Submitting #{i+1}...[/yellow]")
+            await submit_once(url, questions, answers)
+            console.print(f"[green]Done #{i+1}[/green]")
 
-    session.stop()
-
+    tasks = [sem_submit(i) for i in range(count)]
+    await asyncio.gather(*tasks)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -1,44 +1,33 @@
 from forms.models import Question
 
-
-def scan_form(page) -> list[Question]:
+async def scan_form(page) -> list[Question]:
     questions = []
+    blocks = await page.locator('[role="listitem"]').all()
 
-    blocks = page.locator('[role="listitem"]')
-
-    for i in range(blocks.count()):
-        block = blocks.nth(i)
-
-        radios = block.locator('[role="radio"]')
-
-        if radios.count() == 0:
+    for block in blocks:
+        radios = await block.locator('[role="radio"]').all()
+        if not radios:
             continue
 
-        title = f"Question {len(questions) + 1}"
-
+        title = "Question"
         heading = block.locator('[role="heading"]').first
-        if heading.count():
-            title = heading.inner_text().strip()
+        if await heading.count():
+            title = await heading.inner_text()
 
         options = []
-
-        for j in range(radios.count()):
-            radio = radios.nth(j)
-
+        for radio in radios:
             label = (
-                radio.get_attribute("aria-label")
-                or radio.get_attribute("data-value")
-                or f"Option {j+1}"
+                await radio.get_attribute("aria-label")
+                or await radio.get_attribute("data-value")
+                or "Option"
             )
-
-            options.append(label)
+            options.append(label.strip())
 
         questions.append(
             Question(
-                title=title,
+                title=title.strip(),
                 qtype="radio",
-                options=options,
-                locator=block,
+                options=options
             )
         )
 
